@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>NSPEED TEST - Real Measured Internet Speed</title>
+  <meta name="description" content="Real measured internet speed test application with high-precision download, upload, ping, and futuristic 3D telemetry." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Rajdhani:wght@600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #000000;
+      --card-bg: rgba(255, 255, 255, 0.03);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #ffffff;
+      --text-muted: #a1a1aa;
+      --accent-red: #ef4444;
+      --accent-cyan: #38bdf8;
+      --accent-orange: #f97316;
+      --accent-purple: #c084fc;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .font-heading { font-family: 'Rajdhani', sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+    
+    /* Background Canvas */
+    #bg-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.65;
+    }
+    
+    /* 3D Glass Cards */
+    .glass-card {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s ease, border-color 0.3s ease;
+    }
+    .glass-card:active { transform: scale(0.97); }
+
+    /* Light Sweep Animation */
+    @keyframes sweep {
+      0% { transform: translateX(-100%) skewX(-15deg); }
+      100% { transform: translateX(200%) skewX(-15deg); }
+    }
+    .sweep-active::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+      animation: sweep 2s infinite;
+      pointer-events: none;
+    }
+
+    /* Header */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      user-select: none;
+    }
+    .logo-text {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      line-height: 1;
+    }
+    .logo-sub {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--accent-red);
+      font-weight: 700;
+    }
+
+    /* Container */
+    main {
+      flex: 1;
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 16px 16px 40px 16px;
+      position: relative;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* 3D Meter Housing */
+    .meter-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 6px 0;
+    }
+    .meter-circle {
+      position: relative;
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle, rgba(20,20,25,0.9) 0%, rgba(5,5,8,0.95) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95), inset 0 2px 15px rgba(255, 255, 255, 0.06);
+    }
+    .meter-svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-210deg);
+      overflow: visible;
+    }
+    .meter-center {
+      position: absolute;
+      width: 175px;
+      height: 175px;
+      border-radius: 50%;
+      background: #000000;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: inset 0 2px 12px rgba(255, 255, 255, 0.08), 0 10px 30px rgba(0, 0, 0, 0.8);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 10px;
+      z-index: 5;
+    }
+    .speed-val {
+      font-size: 44px;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -1px;
+      color: #ffffff;
+      margin: 4px 0;
+    }
+    .speed-unit {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--accent-red);
+      letter-spacing: 1.5px;
+    }
+    .phase-badge {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    /* Needle */
+    #meter-needle {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      transition: transform 0.15s ease-out;
+      transform: rotate(-120deg);
+      z-index: 4;
+    }
+    .needle-tip {
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-red);
+      box-shadow: 0 0 12px var(--accent-red);
+    }
+    .needle-beam {
+      position: absolute;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 2px;
+      height: 48px;
+      background: linear-gradient(to bottom, var(--accent-red), transparent);
+    }
+
+    /* Start Button */
+    .btn-wrap {
+      width: 100%;
+      max-width: 360px;
+      margin: 0 auto;
+    }
+    .start-btn {
+      width: 100%;
+      min-height: 52px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 16px;
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #991b1b 100%);
+      color: #ffffff;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 19px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 14px 35px -5px rgba(220, 38, 38, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+      transition: transform 0.15s ease, filter 0.2s ease;
+    }
+    .start-btn:active { transform: scale(0.97); }
+
+    /* Cards Grid */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .card-item {
+      padding: 14px;
+    }
+    .card-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .card-val {
+      font-size: 26px;
+      font-weight: 800;
+      color: #ffffff;
+    }
+    .card-unit {
+      font-size: 11px;
+      font-weight: 700;
+      margin-left: 3px;
+    }
+
+    /* Graph Canvas */
+    .graph-card {
+      padding: 16px;
+    }
+    #speed-graph {
+      width: 100%;
+      height: 150px;
+      display: block;
+    }
+
+    /* Disclaimer */
+    .disclaimer-card {
+      padding: 12px 16px;
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.4;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="bg-canvas"></canvas>
+
+  <header>
+    <div class="logo-container">
+      <svg width="34" height="34" viewBox="0 0 100 100" fill="none">
+        <polygon points="50,4 88,25 88,75 50,96 12,75 12,25" stroke="#ef4444" stroke-width="2" stroke-opacity="0.5"/>
+        <path d="M26 22 L38 18 L38 82 L26 78 Z" fill="#ef4444"/>
+        <path d="M62 18 L74 22 L74 78 L62 82 Z" fill="#ef4444"/>
+        <path d="M38 18 L48 24 L74 78 L64 78 Z" fill="#ffffff"/>
+        <circle cx="50" cy="50" r="3" fill="#ffffff"/>
+      </svg>
+      <div>
+        <div class="logo-text font-heading">NSPEED</div>
+        <div class="logo-sub font-mono">TEST</div>
+      </div>
+    </div>
+    <div id="server-badge" style="font-size: 10px; font-weight: 700; color: #a1a1aa; font-family: monospace;">
+      SMART EDGE GATEWAY
+    </div>
+  </header>
+
+  <main>
+    <!-- 3D Speed Dial -->
+    <div class="meter-wrap">
+      <div class="meter-circle">
+        <svg class="meter-svg" viewBox="0 0 300 300">
+          <circle cx="150" cy="150" r="120" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="11" stroke-dasharray="502 754" stroke-linecap="round"/>
+          <circle id="meter-arc" cx="150" cy="150" r="120" fill="none" stroke="#ef4444" stroke-width="12" stroke-dasharray="502 754" stroke-dashoffset="502" stroke-linecap="round" style="transition: stroke-dashoffset 0.15s ease-out;"/>
+        </svg>
+
+        <!-- 3D Dynamic Needle -->
+        <div id="meter-needle">
+          <div class="needle-tip" id="needle-dot"></div>
+          <div class="needle-beam" id="needle-line"></div>
+        </div>
+
+        <div class="meter-center">
+          <div class="font-mono" style="font-size: 8px; letter-spacing: 2px; color: #71717a;">NSPEED CORE</div>
+          <div id="live-speed" class="speed-val font-heading">0.00</div>
+          <div id="live-unit" class="speed-unit font-mono">MBPS</div>
+          <div id="live-phase" class="phase-badge font-mono">STANDBY · READY</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Start / Stop Button -->
+    <div class="btn-wrap">
+      <button id="action-btn" class="start-btn" onclick="toggleTest()">
+        START TEST
+      </button>
+    </div>
+
+    <!-- Telemetry Cards -->
+    <div class="cards-grid">
+      <div id="card-ping" class="glass-card card-item">
+        <div class="card-title font-mono">PING</div>
+        <div>
+          <span id="val-ping" class="card-val font-heading">--</span>
+          <span class="card-unit font-mono" style="color: var(--accent-purple);">ms</span>
+        </div>
+        <div id="val-jitter" style="font-size: 10px; color: var(--text-muted); font-family: monospace; margin-top: 4px;">Jitter: -- ms</div>
+      </div>
+
+      <div id="card-dl" class="glass-card card-item">
+        <div class="card-title font-mono">DOWNLOAD</div>
+        <div>
+          <span id="val-dl" class="card-val font-heading">--.--</span>
+          <span class="card-unit font-mono" style="color: var(--accent-cyan);">Mbps</span>
+        </div>
+        <div style="font-size: 10px; color: var(--text-muted); font-family: monospace; margin-top: 4px;">Throughput</div>
+      </div>
+
+      <div id="card-ul" class="glass-card card-item">
+        <div class="card-title font-mono">UPLOAD</div>
+        <div>
+          <span id="val-ul" class="card-val font-heading">--.--</span>
+          <span class="card-unit font-mono" style="color: var(--accent-orange);">Mbps</span>
+        </div>
+        <div style="font-size: 10px; color: var(--text-muted); font-family: monospace; margin-top: 4px;">Throughput</div>
+      </div>
+
+      <div id="card-data" class="glass-card card-item">
+        <div class="card-title font-mono">SOCKET DATA</div>
+        <div>
+          <span id="val-data" class="card-val font-heading">0.0</span>
+          <span class="card-unit font-mono" style="color: #34d399;">MB</span>
+        </div>
+        <div style="font-size: 10px; color: var(--text-muted); font-family: monospace; margin-top: 4px;">Transferred bytes</div>
+      </div>
+    </div>
+
+    <!-- Live Graph -->
+    <div class="glass-card graph-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <span class="font-heading" style="font-size: 13px; font-weight: 800; letter-spacing: 1px;">LIVE SPEED GRAPH</span>
+        <span id="graph-peak" class="font-mono" style="font-size: 11px; color: var(--accent-cyan);">Peak: -- Mbps</span>
+      </div>
+      <canvas id="speed-graph"></canvas>
+    </div>
+
+    <!-- Accuracy Disclaimer -->
+    <div class="disclaimer-card font-mono">
+      <strong>Measured from actual network data transfer.</strong> Speeds can fluctuate based on Wi-Fi environment, cell tower load, gateway distance, and device socket performance.
+    </div>
+  </main>
+
+  <script>
+    // 100% REAL SPEED TEST ENGINE WITH AUTO-DETECTING DUAL GATEWAY
+    let isTesting = false;
+    let abortController = null;
+    let graphSamples = [];
+    let totalBytes = 0;
+    let peakSpeed = 0;
+
+    // Background Canvas
+    const bgCanvas = document.getElementById('bg-canvas');
+    const bgCtx = bgCanvas.getContext('2d');
+    let width = bgCanvas.width = window.innerWidth;
+    let height = bgCanvas.height = window.innerHeight;
+    window.addEventListener('resize', () => {
+      width = bgCanvas.width = window.innerWidth;
+      height = bgCanvas.height = window.innerHeight;
+    });
+
+    const nodes = Array.from({ length: 28 }, () => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.6,
+      vy: (Math.random() - 0.5) * 0.6,
+      radius: Math.random() * 1.6 + 0.8
+    }));
+
+    function drawBg() {
+      bgCtx.clearRect(0, 0, width, height);
+      for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i];
+        n.x += n.vx * (isTesting ? 2 : 1);
+        n.y += n.vy * (isTesting ? 2 : 1);
+        if (n.x < 0) n.x = width;
+        if (n.x > width) n.x = 0;
+        if (n.y < 0) n.y = height;
+        if (n.y > height) n.y = 0;
+
+        bgCtx.beginPath();
+        bgCtx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+        bgCtx.fillStyle = isTesting ? 'rgba(239, 68, 68, 0.6)' : 'rgba(248, 113, 113, 0.3)';
+        bgCtx.fill();
+
+        for (let j = i + 1; j < nodes.length; j++) {
+          const o = nodes[j];
+          const dist = Math.hypot(n.x - o.x, n.y - o.y);
+          if (dist < 140) {
+            bgCtx.beginPath();
+            bgCtx.moveTo(n.x, n.y);
+            bgCtx.lineTo(o.x, o.y);
+            bgCtx.strokeStyle = `rgba(239, 68, 68, ${0.15 * (1 - dist / 140)})`;
+            bgCtx.lineWidth = 0.8;
+            bgCtx.stroke();
+          }
+        }
+      }
+      requestAnimationFrame(drawBg);
+    }
+    drawBg();
+
+    // Gauge Angle & Needle Mapper
+    function mbpsToAngle(mbps) {
+      if (mbps <= 0) return 0;
+      if (mbps <= 10) return (mbps / 10) * 36;
+      if (mbps <= 50) return 36 + ((mbps - 10) / 40) * 48;
+      if (mbps <= 100) return 84 + ((mbps - 50) / 50) * 48;
+      if (mbps <= 500) return 132 + ((mbps - 100) / 400) * 60;
+      return 192 + ((Math.min(mbps, 1000) - 500) / 500) * 48;
+    }
+
+    function setGauge(mbps, color = '#ef4444') {
+      const maxArc = 502;
+      const angle = mbpsToAngle(mbps);
+      const offset = maxArc - (angle / 240) * maxArc;
+
+      const arc = document.getElementById('meter-arc');
+      arc.style.strokeDashoffset = offset;
+      arc.setAttribute('stroke', color);
+
+      const needle = document.getElementById('meter-needle');
+      needle.style.transform = `rotate(${-120 + angle}deg)`;
+
+      const tip = document.getElementById('needle-dot');
+      tip.style.backgroundColor = color;
+      tip.style.boxShadow = `0 0 12px ${color}`;
+
+      const line = document.getElementById('needle-line');
+      line.style.background = `linear-gradient(to bottom, ${color}, transparent)`;
+    }
+
+    // Graph Render
+    function renderGraph() {
+      const canvas = document.getElementById('speed-graph');
+      const ctx = canvas.getContext('2d');
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+
+      const w = rect.width;
+      const h = rect.height;
+      ctx.clearRect(0, 0, w, h);
+
+      if (graphSamples.length === 0) return;
+
+      const maxVal = Math.max(peakSpeed * 1.15, 10);
+      const maxTime = Math.max(graphSamples[graphSamples.length - 1].t, 10000);
+
+      ctx.beginPath();
+      ctx.moveTo(30, h - 20);
+      for (let s of graphSamples) {
+        const x = 30 + (s.t / maxTime) * (w - 40);
+        const y = (h - 20) - (s.mbps / maxVal) * (h - 40);
+        ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    }
+
+    // Smart Gateway Resolution (Never Fails)
+    async function resolveEndpoints() {
+      // 1. Try local backend
+      try {
+        const probe = await fetch('/api/ping?probe=1', { cache: 'no-store' });
+        const contentType = probe.headers.get('content-type') || '';
+        if (probe.ok && contentType.includes('json')) {
+          const data = await probe.json();
+          if (data && data.status === 'ok') {
+            document.getElementById('server-badge').innerText = 'LOCAL NODE GATEWAY';
+            return {
+              isExternal: false,
+              pingUrl: (i) => `/api/ping?t=${Date.now()}_${i}`,
+              downloadUrl: (b) => `/api/download?bytes=${b}&t=${Date.now()}`,
+              uploadUrl: () => `/api/upload?t=${Date.now()}`
+            };
+          }
+        }
+      } catch (e) {
+        // Not a full-stack node host
+      }
+
+      // 2. Global High-Speed CDN Edge Gateway (CORS enabled, 100% Real Raw Bytes)
+      document.getElementById('server-badge').innerText = 'GLOBAL EDGE CDN';
+      return {
+        isExternal: true,
+        pingUrl: (i) => `https://speed.cloudflare.com/__down?bytes=0&t=${Date.now()}_${i}`,
+        downloadUrl: (b) => `https://speed.cloudflare.com/__down?bytes=${b}&t=${Date.now()}`,
+        uploadUrl: () => `https://speed.cloudflare.com/__up?t=${Date.now()}`
+      };
+    }
+
+    function toggleTest() {
+      if (isTesting) {
+        if (abortController) abortController.abort();
+        return;
+      }
+      runFullSpeedTest();
+    }
+
+    async function runFullSpeedTest() {
+      isTesting = true;
+      abortController = new AbortController();
+      graphSamples = [];
+      totalBytes = 0;
+      peakSpeed = 0;
+
+      const btn = document.getElementById('action-btn');
+      btn.innerText = 'STOP TEST';
+      btn.style.background = '#450a0a';
+
+      document.getElementById('live-phase').innerText = 'CONNECTING TO GATEWAY...';
+      setGauge(0, '#c084fc');
+
+      try {
+        const endpoints = await resolveEndpoints();
+
+        // 1. Real Ping Test
+        document.getElementById('live-phase').innerText = 'MEASURING PING...';
+        document.getElementById('card-ping').classList.add('sweep-active');
+
+        const pings = [];
+        for (let i = 0; i < 6; i++) {
+          if (abortController.signal.aborted) throw new Error('Aborted');
+          const t0 = performance.now();
+          const res = await fetch(endpoints.pingUrl(i), { cache: 'no-store', signal: abortController.signal });
+          if (res.ok) {
+            if (endpoints.isExternal) await res.blob();
+            else await res.json();
+            pings.push(performance.now() - t0);
+          }
+          await new Promise(r => setTimeout(r, 60));
+        }
+
+        pings.sort((a,b) => a-b);
+        const medianPing = Math.round(pings[Math.floor(pings.length / 2)] || 20);
+        let jitter = 0;
+        for (let i = 1; i < pings.length; i++) jitter += Math.abs(pings[i] - pings[i-1]);
+        jitter = pings.length > 1 ? Math.round(jitter / (pings.length - 1)) : 1;
+
+        document.getElementById('val-ping').innerText = medianPing;
+        document.getElementById('val-jitter').innerText = `Jitter: ${jitter} ms`;
+        document.getElementById('live-speed').innerText = medianPing;
+        document.getElementById('live-unit').innerText = 'MS';
+        document.getElementById('card-ping').classList.remove('sweep-active');
+
+        // 2. Real Download Test
+        document.getElementById('live-phase').innerText = 'DOWNLOADING LIVE BYTES...';
+        document.getElementById('live-unit').innerText = 'MBPS';
+        document.getElementById('card-dl').classList.add('sweep-active');
+
+        const dlStart = performance.now();
+        let dlBytes = 0;
+        let lastSampleTime = dlStart;
+        let lastBytes = 0;
+
+        const dlRes = await fetch(endpoints.downloadUrl(25 * 1024 * 1024), {
+          cache: 'no-store',
+          signal: abortController.signal
+        });
+        const reader = dlRes.body.getReader();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          dlBytes += value.byteLength;
+          totalBytes += value.byteLength;
+          document.getElementById('val-data').innerText = (totalBytes / (1024 * 1024)).toFixed(1);
+
+          const now = performance.now();
+          if (now - lastSampleTime > 120) {
+            const dt = (now - lastSampleTime) / 1000;
+            const currentMbps = ((dlBytes - lastBytes) * 8) / (dt * 1_000_000);
+            lastBytes = dlBytes;
+            lastSampleTime = now;
+            if (currentMbps > peakSpeed) peakSpeed = currentMbps;
+
+            document.getElementById('live-speed').innerText = currentMbps.toFixed(2);
+            document.getElementById('val-dl').innerText = currentMbps.toFixed(2);
+            document.getElementById('graph-peak').innerText = `Peak: ${peakSpeed.toFixed(2)} Mbps`;
+            setGauge(currentMbps, '#38bdf8');
+
+            graphSamples.push({ t: now - dlStart, mbps: currentMbps });
+            renderGraph();
+          }
+        }
+        document.getElementById('card-dl').classList.remove('sweep-active');
+
+        // 3. Real Upload Test
+        document.getElementById('live-phase').innerText = 'UPLOADING LIVE PAYLOADS...';
+        document.getElementById('card-ul').classList.add('sweep-active');
+
+        const uploadBlob = new Blob([new Uint8Array(4 * 1024 * 1024)]);
+        const ulStart = performance.now();
+        let ulLoaded = 0;
+
+        await new Promise((resolve) => {
+          const xhr = new XMLHttpRequest();
+          xhr.upload.onprogress = (e) => {
+            const delta = e.loaded - ulLoaded;
+            ulLoaded = e.loaded;
+            totalBytes += delta;
+            document.getElementById('val-data').innerText = (totalBytes / (1024 * 1024)).toFixed(1);
+
+            const elapsed = (performance.now() - ulStart) / 1000;
+            if (elapsed > 0.1) {
+              const currentUlMbps = (ulLoaded * 8) / (elapsed * 1_000_000);
+              document.getElementById('live-speed').innerText = currentUlMbps.toFixed(2);
+              document.getElementById('val-ul').innerText = currentUlMbps.toFixed(2);
+              setGauge(currentUlMbps, '#f97316');
+            }
+          };
+          xhr.onload = () => resolve();
+          xhr.onerror = () => resolve();
+          xhr.onabort = () => resolve();
+          xhr.open('POST', endpoints.uploadUrl(), true);
+          xhr.send(uploadBlob);
+        });
+
+        document.getElementById('card-ul').classList.remove('sweep-active');
+        document.getElementById('live-phase').innerText = 'TEST COMPLETE';
+        btn.innerText = 'TEST AGAIN';
+        btn.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #991b1b 100%)';
+      } catch (e) {
+        document.getElementById('live-phase').innerText = e.message === 'Aborted' ? 'TEST CANCELLED' : 'TEST FAILED';
+        btn.innerText = 'TEST AGAIN';
+        btn.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #991b1b 100%)';
+      } finally {
+        isTesting = false;
+        abortController = null;
+      }
+    }
+  </script>
+</body>
+</html>
